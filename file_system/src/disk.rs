@@ -32,7 +32,7 @@ impl Disk {
     }
 
     // write the output buffer contents to block `block_num` on disk
-    pub fn write_block(&mut self, block_num: usize) {
+    pub fn write_block(&mut self, block_num: usize) -> Result<(), &'static str> {
         if block_num >= NUM_BLOCKS {
             return Err("Block number out of range");
         }
