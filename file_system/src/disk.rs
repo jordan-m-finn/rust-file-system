@@ -10,7 +10,7 @@ pub struct Disk {
     pub output_buffer: [u8; BLOCK_SIZE], // O[512]
 }
 
-imp Disk {
+impl Disk {
     // create a new disk with all bytes initialized to zero
     pub fn new() -> Self {
         Disk {
