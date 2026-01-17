@@ -21,14 +21,24 @@ impl Disk {
     }
 
     // read block `block_num` from disk into the input buffer
-    pub fn read_block(&mut self, block_num: usize) {
+    pub fn read_block(&mut self, block_num: usize) -> Result<(), &'static str> {
+        if block_num >= NUM_BLOCKS {
+            return Err("Block number out of range");
+        }
+
         // copy the entire block into the input_buffer
         self.input_buffer.copy_from_slice(&self.data[block_num]);
+        Ok(())
     }
 
     // write the output buffer contents to block `block_num` on disk
     pub fn write_block(&mut self, block_num: usize) {
+        if block_num >= NUM_BLOCKS {
+            return Err("Block number out of range");
+        }
+
         // copy output_buffer into the disk block
         self.data[block_num].copy_from_slice(&self.output_buffer);
+        Ok(())
     }
 }
