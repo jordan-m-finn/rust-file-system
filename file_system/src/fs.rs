@@ -375,6 +375,114 @@ impl FileSystem {
         Ok(bytes_read)
     }
 
+    // Write: copy 'count' bytes from memory M[mem_pos...] to file at OFT index
+    //
+    // @returns Ok(bytes_written) on success
+    pub fn write(&mut self, oft_index: usize, mem_pos: usizem, count: usize) -> FsResult<usize> {
+        use crate::constants::MAX_FILE_SIZE;
+        
+        // validate OFT index
+        if oft_index >= OFT_SIZE {
+            return Err("Invalid OFT index");
+        }
+
+        // validate memory position
+        if mem_pos >= BLOCK_SIZE {
+            return Err("Memory position out of range");
+        }
+
+        // check if entry is in use
+        {
+            let entry = self.oft.get(oft_index).ok_or("Invalid OFT index");
+            if entry.is_free() {
+                return Err("File not open");
+            }
+        }
+
+        let mut bytes_written = 0;
+
+        while bytes_written < count {
+            // get current state
+            let (current_pos, file_size, desc_index, buffer_offset) = {
+                let entry = self.oft.get(oft_index).unwrap();;
+                (
+                    entry.current_pos as usize,
+                    entry.size as usize,
+                    entry.descriptor_index as usize,
+                    entry.buffer_offset(),
+                )
+            };
+
+            if current_pos >= MAX_FILE_SIZE {
+                break;
+            }
+
+            // check for the end of memory buffer M
+            if mem_pos + bytes_written >= BLOCK_SIZE {
+                break;
+            }
+
+            // calculate how many bytes we can write in this iteration
+            let bytes_remaining_in_buffer = BLOCK_SIZE - buffer_offset;
+            let bytes_remaining_in_file = MAX_FILE_SIZE - current_pos;
+            let bytes_remaining_to_write = count - bytes_written;
+            let bytes_remaining_in_memory = BLOCK_SIZE - (mem_pos + bytes_written);
+
+            let bytes_this_iteration = bytes_remaining_in_buffer
+                .min(bytes_remaining_in_file)
+                .min(bytes_remaining_to_write)
+                .min(bytes_remaining_in_memory);
+
+            // copy bytes from memory M to OFT buffer
+            {
+                let entry = self.oft.get_mut(oft_index).unwrap();
+                let src_start = mem_pos + bytes_written;
+                let src_end = src_start + bytes_this_iteration;
+                let dst_start = buffer_offset;
+                let dst_end = buffer_offset + bytes_this_iteration;
+
+                entry.buffer[dst_start..dst_end]
+                    .copy_from_slice(&self.memory[src_start..src_end]);
+            }
+
+            // update position and count
+            bytes_written += bytes_this_iteration;
+            {
+                let entry = self.oft.get_mut(oft_index).unwrap();
+                entry.current_pos += bytes_this_iteration as i32;
+
+                // update file size if we've extended the file
+                if entry.current_pos > entry.size {
+                    entry.size = entry.current_pos;
+                }
+            }
+
+            // check if we hit end of buffer and need to move to next block
+            let (new_buffer_offset, current_pos) = {
+                let entry = self.oft.get(oft_index).unwrap();
+                (entry.buffer_offset(), entry.current_pos as usize)
+            };
+
+            if new_buffer_offset == 0 && current_pos < MAX_FILE_SIZE && bytes_written < count {
+                // we've crossed into a new block
+                self.write_swap_buffer(oft_index)?;
+            }
+        }
+
+        // update the descriptor with new file size
+        {
+            let entry = self.oft.get(oft_index).unwrap();
+            let desc_index = entry.descriptor_index as usize;
+            let new_size = entry.size;
+
+            let mut desc = self.read_descriptor(desc_index);
+            desc.size = new_size;
+            self.write_descriptor(desc_index, &desc);
+        }
+
+        Ok(bytes_written)
+    }
+
     // =========== HELPER FUNCTIONS FOR THE CORE OPERATIONS ============== //
 
     // Helper: swap the buffer for an open file to match current position
@@ -412,5 +520,11 @@ impl FileSystem {
         }
 
         Ok(())
+    }
+
+    // Helper: swap buffer during write operation, similar to the fn above but also allocates new
+    // blocks if needed
+    fn write_swap_buffer(&mut self, oft_index: usize) -> FsResult<()> {
+        
     }
 }
