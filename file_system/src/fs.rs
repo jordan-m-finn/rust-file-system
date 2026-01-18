@@ -283,4 +283,134 @@ impl FileSystem {
 
         Ok(())
     }
+
+    // Read: copy 'count' bytes from file at OFT index to memory M starting at 'mem_pos'
+    //
+    // Returns Ok(bytes_read) on success
+    pub fn read(&mut self, oft_index: usize, mem_pos: usize, count: usize) -> FsResult<usize> {
+        // validate OFT index
+        if oft_index >= OFT_SIZE {
+            return Err("Invalid OFT index");
+        }
+
+        // validate memory position
+        if mem_pos >= BLOCK_SIZE {
+            return Err("Memory position out of range");
+        }
+
+        // check if entry is in use
+        {
+            let entry = self.oft.get(oft_index).ok_or("Invalid OFT index")?;
+            if entry.is_free() {
+                return Err("File not open");
+            }
+        }
+
+        let mut bytes_read = 0;
+
+        while bytes_read < count {
+            // get current state (must re-borrow each iteration due to mutations)
+            let (current_pos, file_size, desc_index, buffer_offset) = {
+                let entry = self.oft.get(oft_index).unwrap();
+                {
+                    entry.current_pos as usize,
+                    entry.size as usize,
+                    entry.descriptor_index as usize,
+                    entry.buffer_offset(),
+                }
+            };
+
+            // check for end of file
+            if current_pos >= file_size {
+                break;
+            }
+
+            // check for end of memory buffer m
+            if mem_pos + bytes_read >= BLOCK_SIZE {
+                break;
+            }
+
+            // calculate how many bytes we can read in this iteration
+            let bytes_remaining_in_buffer = BLOCK_SIZE - buffer_offset;
+            let bytes_remaining_in_file = file_size - current_pos;
+            let bytes_remaining_to_read = count - bytes_read;
+            let bytes_remaining_in_memory = BLOCK_SIZE - (mem_pos + bytes_read);
+
+            let bytes_this_iteration = bytes_remaining_in_buffer
+                .min(bytes_remaining_in_file)
+                .min(bytes_remaining_to_read)
+                .min(bytes_remaining_in_memory);
+            
+            // copy bytes from OFT buffer to memory M
+            {
+                let entry = self.oft.get(oft_index).unwrap();
+                let src_start = buffer_offset;
+                let src_end = buffer_offset + bytes_this_iteration;
+                let dst_start = mem_pos + bytes_read;
+                let dst_end = dst_start + bytes_this_iteration;
+
+                self.memory[dst_start..dst_end]
+                    .copy_from_slice(&entry.buffer[src_start..src_end]);
+            }
+
+            // update position and count
+            bytes_read += bytes_this_iteration;
+            {
+                let entry = self.oft.get_mut(oft_index).unwrap();
+                entry.current_pos += bytes_this_iteration as i32;
+            }
+
+            // check if we hit end of buffer and need to load next block
+            let (new_buffer_offset, current_pos, file_size) = {
+                let entry = self.oft.get(oft_index).unwrap();
+                (entry.buffer_offset(), entry.current_pos as usize, entry.size as usize)
+            };
+
+            if new_buffer_offset == 0 && current_pos < file_size && bytes_read < count {
+                // we've crossed into a new block, need to swap buffers
+                self.swap_buffer(oft_index);
+            }
+        }
+
+        Ok(bytes_read)
+    }
+
+    // =========== HELPER FUNCTIONS FOR THE CORE OPERATIONS ============== //
+
+    // Helper: swap the buffer for an open file to match current position
+    // writes current buffer to disk, loads new block
+    fn swap_buffer(&mut self, oft_index: usize) -> FsResult<()> {
+        let (desc_index, old_block_index, new_block_index) = {
+            let entry = self.oft.get(oft_index).unwrap();
+            let current_pos = entry.current_pos as usize;
+            let new_block = current_pos / BLOCK_SIZE;
+            // old block is one less since we just crossed the boundary
+            let old_block = if new_block > 0 { new_block - 1 } else { 0 };
+            (entry.descriptor_index as usize, old_block, new_block)
+        };
+
+        let desc = self.read_descriptor(desc_index);
+
+        // write old buffer to disk
+        let old_disk_block = desc.blocks[old_block_index] as usize;
+        if old_disk_block > 0 {
+            let entry = self.oft.get(oft_index).unwrap();
+            self.disk.output_buffer.copy_from_slice(&entry.buffer);
+            self.disk.write_block(old_disk_block)?;
+        }
+
+        // load new block into buffer
+        let new_disk_block = desc.blocks[new_block_index] as usize;
+        if new_disk_block > 0 {
+            self.disk.read_block(new_disk_block)?;
+            let entry = self.oft.get_mut(oft_index).unwrap();
+            entry.buffer.copy_from_slice(&self.disk.input_buffer);
+        } else {
+            // new block doesn't exist yet, zero the buffer
+            let entry = self.oft.get_mut(oft_index).unwrap();
+            entry.buffer.fill(0);
+        }
+
+        Ok(())
+    }
 }
