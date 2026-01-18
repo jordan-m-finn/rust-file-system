@@ -20,6 +20,9 @@ use crate::descriptor::{
 };
 use crate::oft::{OFT, OFTEntry};
 
+// result type for file system operations
+pub type FsResult<T> = Result<T, &'static str>;
+
 // complete file system state
 pub struct FileSystem {
     disk: Disk,
@@ -216,5 +219,68 @@ impl FileSystem {
                 );
             }
         }
+    }
+
+
+    // ======================== Core File Operations ======================== // 
+
+    // Seek: set the current position of file at OFT index to `pos`
+    //
+    // @returns Ok(()) on success, Err on failure
+    pub fn seek(&mut self, oft_index: usize, pos: usize) -> FsResult<()> {
+        // Validate OFT index
+        if oft_index >= OFT_SIZE {
+            return Err("Invalid OFT index");
+        }
+
+        // get the OFT entry
+        let entry = self.oft.get(oft_index).ok_or("Invalid OFT index")?;
+
+        // check if entry is in use
+        if entry.is_free() {
+            return Err("File not open");
+        }
+
+        // check if position is valid (can seek to end of file, but not past it)
+        if pos > entry.size as usize {
+            return Err("Position exceeds file size");
+        }
+
+        // determine which block of the file contains position 'pos'
+        // 0, 1, or 2
+        let new_block_index = pos / BLOCK_SIZE;
+
+        // get current block in buffer
+        let entry = self.oft.get(oft_index).unwrap();
+        let current_block_index = entry.current_block();
+
+        // if we need a different block, swap buffers
+        if new_block_index != current_block_index && entry.size > 0 {
+            // get the descriptor to find block numbers
+            let desc_index = entry.descriptor_index as usize;
+            let desc = self.read_descriptor(desc_index);
+
+            // write current buffer back to disk
+            let current_disk_block = desc.blocks[current_block_index] as usize;
+            if current_disk_block > 0 {
+                let entry = self.oft.get(oft_index).unwrap();
+                self.disk.output_buffer.copy_from_slice(&entry.buffer);
+                self.disk.write_block(current_disk_block)?;
+            }
+
+            // load the new block into buffer
+            let new_disk_block = desc.blocks[new_block_index] as usize;
+            if new_disk_block > 0  {
+                self.disk.read_block(new_disk_block)?;
+                let entry = self.oft.get_mut(oft_index).unwrap();
+                entry.buffer.copy_from_slice(&self.disk.input_buffer);
+            }
+        }
+
+        // update current position
+        let entry = self.oft.get_mut(oft_index).unwrap();
+        entry.current_pos = pos as i32;
+
+        Ok(())
     }
 }
