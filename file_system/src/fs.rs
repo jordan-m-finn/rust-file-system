@@ -368,7 +368,7 @@ impl FileSystem {
 
             if new_buffer_offset == 0 && current_pos < file_size && bytes_read < count {
                 // we've crossed into a new block, need to swap buffers
-                self.swap_buffer(oft_index);
+                self.swap_buffer(oft_index)?;
             }
         }
 
@@ -494,13 +494,13 @@ impl FileSystem {
         // search directory for the file
         let desc_index = match self.find_file_in_directory(name)? {
             Some(idx) => idx,
-            None => return Err("File not found");
+            None => return Err("File not found"),
         };
 
         // find a free OFT entry (skip index 0, reserved for directory)
         let oft_index = match self.oft.find_free() {
             Some(idx) => idx,
-            None => return Err("Too many files open");
+            None => return Err("Too many files open"),
         };
 
         // get file descriptor
@@ -525,7 +525,7 @@ impl FileSystem {
             // empty file so allocate first block if not alread allocated
             let mut desc = desc;
             if desc.blocks[0] == 0 {
-                let new_block = self.allocate_block().ok_or("Disk full");
+                let new_block = self.allocate_block().ok_or("Disk full")?;
                 desc.blocks[0] = new_block as i32;
                 self.write_descriptor(desc_index, &desc);
             }
@@ -547,14 +547,14 @@ impl FileSystem {
 
         // check if entry is in use
         {
-            let entry = self.oft.get(oft_index).ok_or("Invalid OFT index");
+            let entry = self.oft.get(oft_index).ok_or("Invalid OFT index")?;
             if entry.is_free() {
                 return Err("File not open");
             }
         }
 
         // get info we need before modifying
-        let desc_index, current_pos, size) = {
+        let (desc_index, current_pos, size) = {
             let entry = self.oft.get(oft_index).unwrap();
             (
                 entry.descriptor_index as usize,
@@ -565,7 +565,7 @@ impl FileSystem {
 
         // write buffer back to disk
         let desc = self.read_descriptor(desc_index);
-        let current_block_idnex = current_pos / BLOCK_SIZE;
+        let current_block_index = current_pos / BLOCK_SIZE;
         
         // only write if there's a valid block
         if current_block_index < 3 {
@@ -610,13 +610,13 @@ impl FileSystem {
         // find a free descriptor
         let desc_index = match self.find_free_descriptor() {
             Some(idx) => idx,
-            None => return Err("Too many files");
+            None => return Err("Too many files"),
         };
 
         // find a free directory entry
         let dir_pos = match self.find_free_directory_entry()? {
             Some(pos) => pos,
-            None => return Err("Directory full");
+            None => return Err("Directory full"),
         };
 
         // initialize the descriptor (size=0, no blocks allocated yet)
@@ -669,7 +669,7 @@ impl FileSystem {
         // check if file is currently open
         for i in 1..OFT_SIZE {
             if let Some(entry) = self.oft.get(i) {
-                if !entry.is_free() && entry.descriptor__index as usize == desc_index {
+                if !entry.is_free() && entry.descriptor_index as usize == desc_index {
                     return Err("File is open");
                 }
             }
@@ -788,7 +788,7 @@ impl FileSystem {
         if old_disk_block > 0 {
             let entry = self.oft.get(oft_index).unwrap();
             self.disk.output_buffer.copy_from_slice(&entry.buffer);
-            self.disk.write_block(old_disk_block);
+            self.disk.write_block(old_disk_block)?;
         }
 
         // check if new block exists, allocate if not
@@ -886,7 +886,7 @@ impl FileSystem {
 
         // first, search existing entries for a free slot (name = 0)
         while pos < dir_size {
-            let bytes_read = self.read(0, 0, DIR_ENTRY_SIZE);
+            let bytes_read = self.read(0, 0, DIR_ENTRY_SIZE)?;
             if bytes_read < DIR_ENTRY_SIZE {
                 break;
             }
@@ -912,7 +912,7 @@ impl FileSystem {
     }
 
     // write a directory entry at the specified position
-    fn write_directory_entry(&mut self, pos: usize, name: &str, desc_index: usize) {
+    fn write_directory_entry(&mut self, pos: usize, name: &str, desc_index: usize) -> FsResult<()> {
         use crate::constants::DIR_ENTRY_SIZE;
 
         // prepare the entry in memory
@@ -951,7 +951,7 @@ impl FileSystem {
         let mut name = String::new();
 
         for i in 0..4 {
-            let byte = self.memory[offset + 1];
+            let byte = self.memory[offset + i];
             if byte == 0 {
                 break;
             }
