@@ -587,4 +587,41 @@ impl FileSystem {
         let bytes = &self.memory[mem_pos..mem_pos + count];
         Ok(String::from_utf8_lossy(bytes).into_owned())
     }
+
+    // ======================= Directory Helpers ============================ //
+    
+    // search the directory for a file by name
+    // @returns Some(descriptor_index) if found, None if not found
+    fn find_file_in_directory(&mut self, name: &str) -> FsResult<Option<usize>> {
+        use crate::constants::DIR_ENTRY_SIZE;
+
+        // seek to start of directory
+        self.seek(0, 0)?;
+
+        let dir_size = self.oft.get(0).unwrap().size as usize;
+        let mut pos = 0;
+
+        while pos < dir_size {
+            // read directory entry into memory
+            let bytes_read = self.read(0, 0, DIR_ENTRY_SIZE)?;
+            if bytes_read < DIR_ENTRY_SIZE {
+                break;
+            }
+
+            // extract name (first 4 bytes)
+            let entry_name = self.extract_name_from_memory(0);
+
+            // extract descriptor index (next 4 bytes)
+            let desc_index = read_i32(&self.memory, 4) as usize;
+
+            // check if this entry matches
+            if entry_name == name {
+                return Ok(Some(desc_index));
+            }
+
+            pos += DIR_ENTRY_SIZE;
+        }
+
+        Ok(None)
+    }
 }
