@@ -662,4 +662,18 @@ impl FileSystem {
         // directory is full :/
         Ok(None)
     }
+
+    // clear a directory entry at the specified position (set name to 0)
+    fn clear_directory_entry(&mut self, pos: usize) -> FsResult<()> {
+        use crate::constants::DIR_ENTRY_SIZE;
+
+        // zero out the entry in memory
+        self.memory[0..DIR_ENTRY_SIZE].fill(0);
+
+        // seek to position and write
+        self.seek(0, pos)?;
+        self.write(0, 0, DIR_ENTRY_SIZE)?;
+
+        Ok(())
+    }
 }
