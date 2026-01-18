@@ -378,7 +378,7 @@ impl FileSystem {
     // Write: copy 'count' bytes from memory M[mem_pos...] to file at OFT index
     //
     // @returns Ok(bytes_written) on success
-    pub fn write(&mut self, oft_index: usize, mem_pos: usizem, count: usize) -> FsResult<usize> {
+    pub fn write(&mut self, oft_index: usize, mem_pos: usize, count: usize) -> FsResult<usize> {
         use crate::constants::MAX_FILE_SIZE;
         
         // validate OFT index
@@ -393,7 +393,7 @@ impl FileSystem {
 
         // check if entry is in use
         {
-            let entry = self.oft.get(oft_index).ok_or("Invalid OFT index");
+            let entry = self.oft.get(oft_index).ok_or("Invalid OFT index")?;
             if entry.is_free() {
                 return Err("File not open");
             }
