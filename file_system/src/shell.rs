@@ -41,3 +41,17 @@ fn cmd_init(fs: &mut FileSystem) -> String {
     fs.init();
     "system initialized".to_string()
 }
+
+// create a new file
+fn cmd_create(fs: &mut FileSystem, args: &[&str]) -> String {
+    if args.len() != 1 {
+        return "error".to_string();
+    }
+
+    let name = args[0];
+
+    match fs.create(name) {
+        Ok(()) => format!("{} created", name),
+        Err(_) => "error".to_string(),
+    }
+}
