@@ -534,6 +534,67 @@ impl FileSystem {
         Ok(oft_index)
     }
 
+    // close a file via OFT index
+    pub fn close(&mut self, oft_index: usize) -> FsResult<()> {
+        // validate OFT index (can't close directory at index 0)
+        if oft_index == 0 {
+            return Err("Cannot close directory");
+        }
+
+        if oft_index >= OFT_SIZE {
+            return Err("Invalid OFT index");
+        }
+
+        // check if entry is in use
+        {
+            let entry = self.oft.get(oft_index).ok_or("Invalid OFT index");
+            if entry.is_free() {
+                return Err("File not open");
+            }
+        }
+
+        // get info we need before modifying
+        let desc_index, current_pos, size) = {
+            let entry = self.oft.get(oft_index).unwrap();
+            (
+                entry.descriptor_index as usize,
+                entry.current_pos as usize,
+                entry.size,
+            )
+        };
+
+        // write buffer back to disk
+        let desc = self.read_descriptor(desc_index);
+        let current_block_idnex = current_pos / BLOCK_SIZE;
+        
+        // only write if there's a valid block
+        if current_block_index < 3 {
+            let disk_block = desc.blocks[current_block_index] as usize;
+            if disk_block > 0 {
+                let entry = self.oft.get(oft_index).unwrap();
+                self.disk.output_buffer.copy_from_slice(&entry.buffer);
+                self.disk.write_block(disk_block)?;
+            }
+        }
+
+        // update file size in descriptor
+        let mut desc = self.read_descriptor(desc_index);
+        desc.size = size;
+        self.write_descriptor(desc_index, &desc);
+
+        // flush the reserved cache to persist descriptor changes
+        self.flush_reserved_cache();
+
+        // mark OFT entry as free
+        let entry = self.oft.get_mut(oft_index).unwrap();
+        entry.current_pos = -1;
+        entry.size = 0;
+        entry.descriptor_index = 0;
+        entry.buffer.fill(0);
+
+        Ok(())
+    }
+
     // =========== HELPER FUNCTIONS FOR THE CORE OPERATIONS ============== //
 
     // Helper: swap the buffer for an open file to match current position
