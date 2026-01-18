@@ -312,12 +312,12 @@ impl FileSystem {
             // get current state (must re-borrow each iteration due to mutations)
             let (current_pos, file_size, desc_index, buffer_offset) = {
                 let entry = self.oft.get(oft_index).unwrap();
-                {
+                (
                     entry.current_pos as usize,
                     entry.size as usize,
                     entry.descriptor_index as usize,
                     entry.buffer_offset(),
-                }
+                )
             };
 
             // check for end of file
