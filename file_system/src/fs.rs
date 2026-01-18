@@ -632,6 +632,70 @@ impl FileSystem {
         Ok(())
     }
 
+    // deletes a file
+    pub fn destroy(&mut self, name: &str) -> FsResult<()> {
+        use crate::constants::DIR_ENTRY_SIZE;
+
+        // search directory for the file, keeping track of position
+        self.seek(0, 0)?;
+
+        let dir_size = self.oft.get(0).unwrap().size as usize;
+        let mut pos = 0;
+        let mut found_desc_index: Option<usize> = None;
+        let mut found_pos: Option<usize> = None;
+
+        while pos < dir_size {
+            let bytes_read = self.read(0, 0, DIR_ENTRY_SIZE)?;
+            if bytes_read < DIR_ENTRY_SIZE {
+                break;
+            }
+
+            let entry_name = self.extract_name_from_memory(0);
+            let desc_index = read_i32(&self.memory, 4) as usize;
+
+            if entry_name == name {
+                found_desc_index = Some(desc_index);
+                found_pos = Some(pos);
+                break;
+            }
+
+            pos += DIR_ENTRY_SIZE;
+        }
+
+        // check if file was found 
+        let desc_index = found_desc_index.ok_or("File not found")?;
+        let entry_pos = found_pos.unwrap();
+
+        // check if file is currently open
+        for i in 1..OFT_SIZE {
+            if let Some(entry) = self.oft.get(i) {
+                if !entry.is_free() && entry.descriptor__index as usize == desc_index {
+                    return Err("File is open");
+                }
+            }
+        }
+
+        // get descriptor and free its blocks
+        let desc = self.read_descriptor(desc_index);
+        for &block_num in &desc.blocks {
+            if block_num > 0 {
+                self.free_block(block_num as usize);
+            }
+        }
+
+        // mark descriptor as free
+        let free_desc = FileDescriptor::new_free();
+        self.write_descriptor(desc_index, &free_desc);
+
+        // clear directory entry
+        self.clear_directory_entry(entry_pos)?;
+
+        // flush changes to disk
+        self.flush_reserved_cache();
+
+        Ok(())
+    }
+
     // =========== HELPER FUNCTIONS FOR THE CORE OPERATIONS ============== //
 
     // Helper: swap the buffer for an open file to match current position
