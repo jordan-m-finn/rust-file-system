@@ -31,6 +31,12 @@ pub struct FileSystem {
     // cache of reserved blocks (bitmap and descriptors)
     // avoids repeatedly reading blocks 0-6 from disk
     // block 0 = bitmap, blocks 1-6 = descriptors
+    //
+    // As quoted from the spec:
+    // "The reserved blocks 0 through 6 must be accessed frequently to access the bitmap
+    // and the descriptors. It would not be practical to keep reading the blocks repeatedly
+    // from the disk. Instead, these blocks may be copied into a dedicated data structure
+    // after each init command."
     reserved_cache: [[u8; BLOCK_SIZE]; 7],
 }
 
