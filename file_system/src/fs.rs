@@ -576,4 +576,15 @@ impl FileSystem {
         self.memory[mem_pos..mem_pos + len].copy_from_slice(bytes);
         Ok(len)
     }
+
+    // read 'count' bytes from memory M starting at position 'mem_pos'
+    // @returns the bytes as a String (lossy conversion for non-UTF8)
+    pub fn read_memory(&self, mem_pos: usize, count: usize) -> FsResult<String> {
+        if mem_pos + count > BLOCK_SIZE {
+            return Err("Read exceeds memory bounds");
+        }
+
+        let bytes = &self.memory[mem_pos..mem_pos + count];
+        Ok(String::from_utf8_lossy(bytes).into_owned())
+    }
 }
