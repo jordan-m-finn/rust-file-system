@@ -74,7 +74,7 @@ impl OFT {
     }
 
     // get a mutable reference to an entry
-    pub fn get_mut(&mu self, index: usize) -> Option<&mut OFTEntry> {
+    pub fn get_mut(&mut self, index: usize) -> Option<&mut OFTEntry> {
         if index < OFT_SIZE {
             Some(&mut self.entries[index])
         } else {

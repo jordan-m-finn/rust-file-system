@@ -10,7 +10,7 @@ use crate::byte_utils::{read_i32, write_i32};
 #[derive(Debug, Clone, Copy)]
 pub struct FileDescriptor {
     pub size: i32,
-    pub blocks: [i32, 3],
+    pub blocks: [i32; 3],
 }
 
 impl FileDescriptor {
