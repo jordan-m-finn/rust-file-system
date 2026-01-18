@@ -129,7 +129,7 @@ impl FileSystem {
     fn allocate_block(&mut self) -> Option<usize> {
         let block_num = find_free_block(&self.reserved_cache[BITMAP_BLOCK])?;
         set_block_occupied(&mut self.reserved_cache[BITMAP_BLOCK], block_num);
-        Some(block_num);
+        Some(block_num)
     }
 
     // mark a block as free in the bitmap
