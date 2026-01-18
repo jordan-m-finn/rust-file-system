@@ -624,4 +624,42 @@ impl FileSystem {
 
         Ok(None)
     }
+
+    // find a free entry in the directory
+    // @returns Some(position) of the free entry, None if directory is full
+    fn find_free_directory_entry(&mut self) -> FsResult<Option<usize>> {
+        use crate::constants::{DIR_ENTRY_SIZE, MAX_FILE_SIZE};
+
+        // seek to start of directory
+        self.seek(0, 0)?;
+
+        let dir_size = self.oft.get(0).unwrap().size as usize;
+        let mut pos = 0;
+
+        // first, search existing entries for a free slot (name = 0)
+        while pos < dir_size {
+            let bytes_read = self.read(0, 0, DIR_ENTRY_SIZE);
+            if bytes_read < DIR_ENTRY_SIZE {
+                break;
+            }
+
+            // check if name field is zero (aka free entry)
+            if self.memory[0] == 0 {
+                // found one! return its position
+                return Ok(Some(pos));
+            }
+
+            pos += DIR_ENTRY_SIZE;
+        }
+
+        // no free entry found in existing entries
+        // check if we can append a new entry
+        if dir_size + DIR_ENTRY_SIZE <= MAX_FILE_SIZE {
+            // we can add at the end
+            return Ok(Some(dir_size));
+        }
+        
+        // directory is full :/
+        Ok(None)
+    }
 }
