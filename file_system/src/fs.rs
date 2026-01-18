@@ -559,4 +559,21 @@ impl FileSystem {
 
         Ok(())
     }
+
+    
+    // ======================= Memory Operations ============================ //
+    
+    // write a string to memory M starting at position `mem_pos`
+    // @returns the number of bytes written
+    pub fn write_memory(&mut self, mem_pos: usize, data: &str) -> FsResult<usize> {
+        let bytes = data.as_bytes();
+        let len = bytes.len();
+
+        if mem_pos + len > BLOCK_SIZE {
+            return Err("Data exceeds memory bounds");
+        }
+
+        self.memory[mem_pos..mem_pos + len].copy_from_slice(bytes);
+        Ok(len)
+    }
 }
