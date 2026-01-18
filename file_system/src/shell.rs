@@ -35,3 +35,9 @@ pub fn process_command(fs: &mut FileSystem, line: &str) -> String {
         _ => "error".to_string(),
     }
 }
+
+// initialize the file system
+fn cmd_init(fs: &mut FileSystem) -> String {
+    fs.init();
+    "system initialized".to_string()
+}
