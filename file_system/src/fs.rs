@@ -483,6 +483,57 @@ impl FileSystem {
         Ok(bytes_written)
     }
 
+    // open a file by name
+    // @returns the OFT index on success
+    pub fn open(&mut self, name: &str) -> FsResult<usize> {
+        // validate name length
+        if name.is_empty() || name.len() > 4 {
+            return Err("Invalid file name");
+        }
+
+        // search directory for the file
+        let desc_index = match self.find_file_in_directory(name)? {
+            Some(idx) => idx,
+            None => return Err("File not found");
+        };
+
+        // find a free OFT entry (skip index 0, reserved for directory)
+        let oft_index = match self.oft.find_free() {
+            Some(idx) => idx,
+            None => return Err("Too many files open");
+        };
+
+        // get file descriptor
+        let desc = self.read_descriptor(desc_index);
+
+        // set upo the OFT entry
+        {
+            let entry = self.oft.get_mut(oft_index).unwrap();
+            entry.current_pos = 0;
+            entry.size = desc.size;
+            entry.descriptor_index = desc_index as i32;
+            entry.buffer.fill(0);
+        }
+
+        // if file has content, load first block into buffer
+        if desc.size > 0 && desc.blocks[0] > 0 {
+            let block_num = desc.blocks[0] as usize;
+            self.disk.read_block(block_num)?;
+            let entry = self.oft.get_mut(oft_index).unwrap();
+            entry.buffer.copy_from_slice(&self.disk.input_buffer);
+        } else if desc.size == 0 {
+            // empty file so allocate first block if not alread allocated
+            let mut desc = desc;
+            if desc.blocks[0] == 0 {
+                let new_block = self.allocate_block().ok_or("Disk full");
+                desc.blocks[0] = new_block as i32;
+                self.write_descriptor(desc_index, &desc);
+            }
+        }
+        
+        Ok(oft_index)
+    }
+
     // =========== HELPER FUNCTIONS FOR THE CORE OPERATIONS ============== //
 
     // Helper: swap the buffer for an open file to match current position
