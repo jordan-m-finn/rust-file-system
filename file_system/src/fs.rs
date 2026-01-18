@@ -525,6 +525,38 @@ impl FileSystem {
     // Helper: swap buffer during write operation, similar to the fn above but also allocates new
     // blocks if needed
     fn write_swap_buffer(&mut self, oft_index: usize) -> FsResult<()> {
-        
+        let (desc_index, old_block_index, new_block_index) = {
+            let entry = self.oft.get(oft_index).unwrap();
+            let current_pos = entry.current_pos as usize;
+            let new_block = current_pos / BLOCK_SIZE;
+            let old_block = if new_block > 0 { new_block - 1 } else { 0 };
+            (entry.descriptor_index as usize, old_block, new_block)
+        };
+
+        let mut desc = self.read_descriptor(desc_index);
+
+        // write old buffer to disk
+        let old_disk_block = desc.blocks[old_block_index] as usize;
+        if old_disk_block > 0 {
+            let entry = self.oft.get(oft_index).unwrap();
+            self.disk.output_buffer.copy_from_slice(&entry.buffer);
+            self.disk.write_block(old_disk_block);
+        }
+
+        // check if new block exists, allocate if not
+        let mut new_disk_block = desc.blocks[new_block_index] as usize;
+        if new_disk_block == 0 {
+            // allocate a new block
+            new_disk_block = self.allocate_block().ok_or("Disk full")?;
+            desc.blocks[new_block_index] = new_disk_block as i32;
+            self.write_descriptor(desc_index, &desc);
+        }
+
+        // load new block into buffer (or zero it if freshly allocated)
+        self.disk.read_block(new_disk_block)?;
+        let entry = self.oft.get_mut(oft_index).unwrap();
+        entry.buffer.copy_from_slice(&self.disk.input_buffer);
+
+        Ok(())
     }
 }
