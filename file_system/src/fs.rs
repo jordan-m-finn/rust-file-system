@@ -696,6 +696,41 @@ impl FileSystem {
         Ok(())
     }
 
+    // list all files in the directory
+    // @returns a vector of (name, size) pairs
+    pub fn directory(&mut self) -> FsResult<Vec<(String, i32)>> {
+        use crate::constants::DIR_ENTRY_SIZE;
+
+        let mut files = Vec::new();
+
+        // seek to start of directory
+        self.seek(0, 0)?;
+
+        let dir_size = self.oft.get(0).unwrap().size as usize;
+        let mut pos = 0;
+
+        while pos < dir_size {
+            let bytes_read = self.read(0, 0, DIR_ENTRY_SIZE)?;
+            if bytes_read < DIR_ENTRY_SIZE {
+                break;
+            }
+
+            // check if entry is in use (name not zero)
+            if self.memory[0] != 0 {
+                let name = self.extract_name_from_memory(0);
+                let desc_index = read_i32(&self.memory, 4) as usize;
+
+                // get file size from descriptor
+                let desc = self.read_descriptor(desc_index);
+                files.push((name, desc.size));
+            }
+
+            pos += DIR_ENTRY_SIZE;
+        }
+
+        Ok(files)
+    }
+
     // =========== HELPER FUNCTIONS FOR THE CORE OPERATIONS ============== //
 
     // Helper: swap the buffer for an open file to match current position
