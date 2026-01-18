@@ -595,6 +595,43 @@ impl FileSystem {
         Ok(())
     }
 
+    // creates a new file 
+    pub fn create(&mut self, name: &str) -> FsResult<()> {
+        // validate name
+        if name.is_empty() || name.len() > 4 {
+            return Err("Invalid file name");
+        }
+
+        // check if file already exists
+        if self.find_file_in_directory(name)?.is_some() {
+            return Err("File already exists");
+        }
+
+        // find a free descriptor
+        let desc_index = match self.find_free_descriptor() {
+            Some(idx) => idx,
+            None => return Err("Too many files");
+        };
+
+        // find a free directory entry
+        let dir_pos = match self.find_free_directory_entry()? {
+            Some(pos) => pos,
+            None => return Err("Directory full");
+        };
+
+        // initialize the descriptor (size=0, no blocks allocated yet)
+        let new_desc = FileDescriptor::new_empty();
+        self.write_descriptor(desc_index, &new_desc);
+
+        // write directory entry
+        self.write_directory_entry(dir_pos, name, desc_index)?;
+
+        // flush changes to disk
+        self.flush_reserved_cache();
+
+        Ok(())
+    }
+
     // =========== HELPER FUNCTIONS FOR THE CORE OPERATIONS ============== //
 
     // Helper: swap the buffer for an open file to match current position
