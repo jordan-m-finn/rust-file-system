@@ -697,4 +697,18 @@ impl FileSystem {
 
         Ok(())
     }
+
+    // extract a null-terminated name from memory at the given offset
+    fn extract_name_from_memory(&self, offset: usize) -> String {
+        let mut name = String::new();
+
+        for i in 0..4 {
+            let byte = self.memory[offset + 1];
+            if byte == 0 {
+                break;
+            }
+            name.push(byte as char);
+        }
+        name
+    }
 }
