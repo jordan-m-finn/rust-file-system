@@ -663,6 +663,27 @@ impl FileSystem {
         Ok(None)
     }
 
+    // write a directory entry at the specified position
+    fn write_directory_entry(&mut self, pos: usize, name: &str, desc_index: usize) {
+        use crate::constants::DIR_ENTRY_SIZE;
+
+        // prepare the entry in memory
+        // first 4 bytes: name (null-padded)
+        self.memory[0..4].fill(0);
+        let name_bytes = name.as_bytes();
+        let copy_len = name_bytes.len().min(4);
+        self.memory[0..copy_len].copy_from_slice(&name_bytes[0..copy_len]);
+
+        // next 4 bytes: descriptor index
+        write_i32(&mut self.memory, 4, desc_index as i32);
+
+        // seek to position and write
+        self.seek(0, pos)?;
+        self.write(0, 0, DIR_ENTRY_SIZE)?;
+
+        Ok(())
+    }
+
     // clear a directory entry at the specified position (set name to 0)
     fn clear_directory_entry(&mut self, pos: usize) -> FsResult<()> {
         use crate::constants::DIR_ENTRY_SIZE;
