@@ -69,3 +69,34 @@ fn cmd_destroy(fs: &mut FileSystem, args: &[str]) -> String {
         Err(_) => "error".to_string(),
     }
 }
+
+// open a file
+fn cmd_open(fs: &mut FileSystem, args: &[str]) -> String {
+    if args.len() != 1 {
+        return "error".to_string();
+    }
+
+    let name = args[0];
+
+    match fs.open(name) {
+        Ok(index) => format!("{} opened {}", name, index),
+        Err(_) => "error".to_string(),
+    }
+}
+
+// close a file
+fn cmd_close(fs: &mut FileSystem, args: &[str]) -> String {
+    if args.len() != 1 {
+        return "error".to_string();
+    }
+
+    let index: usize = match args[0].parse() {
+        Ok(n) => n,
+        Err(_) => return "error".to_string(),
+    };
+
+    match fs.close(index) {
+        Ok(()) => format!("{} closed", index),
+        Err(_) => "error".to_string(),
+    }
+}
