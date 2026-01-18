@@ -55,3 +55,17 @@ fn cmd_create(fs: &mut FileSystem, args: &[&str]) -> String {
         Err(_) => "error".to_string(),
     }
 }
+
+// destroy a file
+fn cmd_destroy(fs: &mut FileSystem, args: &[str]) -> String {
+    if args.len() != 1 {
+        return "error".to_string();
+    }
+
+    let name = args[0];
+
+    match fs.destroy(name) {
+        Ok(()) => format!("{} destroyed", name),
+        Err(_) => "error".to_string(),
+    }
+}
