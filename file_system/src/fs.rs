@@ -31,6 +31,10 @@ pub struct FileSystem {
     // main memory buffer M[512] for user data
     pub memory: [u8; BLOCK_SIZE],
 
+    // internal scratch buffer for directory operations
+    // keeps user's memory M intact
+    scratch: [u8; BLOCK_SIZE],
+
     // cache of reserved blocks (bitmap and descriptors)
     // avoids repeatedly reading blocks 0-6 from disk
     // block 0 = bitmap, blocks 1-6 = descriptors
@@ -50,6 +54,7 @@ impl FileSystem {
             disk: Disk::new(),
             oft: OFT::new(),
             memory: [0u8; BLOCK_SIZE],
+            scratch: [0u8; BLOCK_SIZE],
             reserved_cache: [[0u8; BLOCK_SIZE]; 7],
         };
 
@@ -100,6 +105,7 @@ impl FileSystem {
 
         // step 6: initialize memory M to zeros
         self.memory.fill(0);
+        self.scratch.fill(0);
 
         // step 7: initialize OFT
         self.oft = OFT::new();
@@ -636,6 +642,9 @@ impl FileSystem {
     pub fn destroy(&mut self, name: &str) -> FsResult<()> {
         use crate::constants::DIR_ENTRY_SIZE;
 
+        // save user's memory
+        let saved_memory: [u8; BLOCK_SIZE] = self.memory;
+
         // search directory for the file, keeping track of position
         self.seek(0, 0)?;
 
@@ -661,6 +670,9 @@ impl FileSystem {
 
             pos += DIR_ENTRY_SIZE;
         }
+
+        // restore user's memory now that we're done searching
+        self.memory = saved_memory;
 
         // check if file was found 
         let desc_index = found_desc_index.ok_or("File not found")?;
@@ -701,6 +713,9 @@ impl FileSystem {
     pub fn directory(&mut self) -> FsResult<Vec<(String, i32)>> {
         use crate::constants::DIR_ENTRY_SIZE;
 
+        // save user's memory
+        let saved_memory: [u8; BLOCK_SIZE] = self.memory;
+
         let mut files = Vec::new();
 
         // seek to start of directory
@@ -727,6 +742,9 @@ impl FileSystem {
 
             pos += DIR_ENTRY_SIZE;
         }
+
+        // restore user's memory
+        self.memory = saved_memory;
 
         Ok(files)
     }
@@ -843,6 +861,9 @@ impl FileSystem {
     fn find_file_in_directory(&mut self, name: &str) -> FsResult<Option<usize>> {
         use crate::constants::DIR_ENTRY_SIZE;
 
+        // save user's memory
+        let saved_memory: [u8; BLOCK_SIZE] = self.memory;
+
         // seek to start of directory
         self.seek(0, 0)?;
 
@@ -864,12 +885,16 @@ impl FileSystem {
 
             // check if this entry matches
             if entry_name == name {
+                // restore user's memory before returning
+                self.memory = saved_memory;
                 return Ok(Some(desc_index));
             }
 
             pos += DIR_ENTRY_SIZE;
         }
-
+        
+        // restore user's memory
+        self.memory = saved_memory;
         Ok(None)
     }
 
@@ -877,6 +902,9 @@ impl FileSystem {
     // @returns Some(position) of the free entry, None if directory is full
     fn find_free_directory_entry(&mut self) -> FsResult<Option<usize>> {
         use crate::constants::{DIR_ENTRY_SIZE, MAX_FILE_SIZE};
+
+        // save user's memory
+        let saved_memory: [u8; BLOCK_SIZE] = self.memory;
 
         // seek to start of directory
         self.seek(0, 0)?;
@@ -894,11 +922,16 @@ impl FileSystem {
             // check if name field is zero (aka free entry)
             if self.memory[0] == 0 {
                 // found one! return its position
+                // restore user's memory before returing
+                self.memory = saved_memory;
                 return Ok(Some(pos));
             }
 
             pos += DIR_ENTRY_SIZE;
         }
+
+        // restore user's memory
+        self.memory = saved_memory;
 
         // no free entry found in existing entries
         // check if we can append a new entry
@@ -915,6 +948,9 @@ impl FileSystem {
     fn write_directory_entry(&mut self, pos: usize, name: &str, desc_index: usize) -> FsResult<()> {
         use crate::constants::DIR_ENTRY_SIZE;
 
+        // save user's memory
+        let saved_memory: [u8; BLOCK_SIZE] = self.memory;
+
         // prepare the entry in memory
         // first 4 bytes: name (null-padded)
         self.memory[0..4].fill(0);
@@ -929,6 +965,9 @@ impl FileSystem {
         self.seek(0, pos)?;
         self.write(0, 0, DIR_ENTRY_SIZE)?;
 
+        // restore user's memory
+        self.memory = saved_memory;
+
         Ok(())
     }
 
@@ -936,12 +975,18 @@ impl FileSystem {
     fn clear_directory_entry(&mut self, pos: usize) -> FsResult<()> {
         use crate::constants::DIR_ENTRY_SIZE;
 
+        // save user's memory
+        let saved_memory: [u8; BLOCK_SIZE] = self.memory;
+
         // zero out the entry in memory
         self.memory[0..DIR_ENTRY_SIZE].fill(0);
 
         // seek to position and write
         self.seek(0, pos)?;
         self.write(0, 0, DIR_ENTRY_SIZE)?;
+
+        // restore user's memory
+        self.memory = saved_memory;
 
         Ok(())
     }
