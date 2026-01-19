@@ -154,3 +154,25 @@ fn cmd_write(fs: &mut FileSystem, args: &[&str]) -> String {
         Err(_) => "error".to_string(),
     }
 }
+
+// seek within a file
+fn cmd_seek(fs: &mut FileSystem, args: &[&str]) -> String {
+    if args.len() != 2 {
+        return "error".to_string();
+    }
+
+    let index: usize = match args[0].parse() {
+        Ok(n) => n,
+        Err(_) => return "error".to_string(),
+    };
+
+    let pos: usize = match args[1].parse() {
+        Ok(n) => n,
+        Err(_) => "error".to_string(),
+    };
+
+    match fs.seek(index, pos) {
+        Ok(()) => format!("position is {}", pos),
+        Err(_) => "error".to_string(),
+    }
+}
