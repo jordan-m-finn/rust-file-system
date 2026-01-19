@@ -176,3 +176,21 @@ fn cmd_seek(fs: &mut FileSystem, args: &[&str]) -> String {
         Err(_) => "error".to_string(),
     }
 }
+
+// list directory contents
+fn cmd_directory(fs: &mut FileSystem) -> String {
+    match fs.directory() {
+        Ok(files) => {
+            if files.is_empty() {
+                String::new()
+            } else {
+                files
+                    .iter()
+                    .map(|(name, size)| format!("{} {}", name, size))
+                    .collect::<Vec<_>>()
+                    .join(" ")
+            }
+        }
+        Err(_) => "error".to_string(),
+    }
+}
