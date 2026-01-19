@@ -7,16 +7,9 @@ use crate::constants::{
     DIRECTORY_BLOCK,
 };
 use crate::disk::Disk;
-use crate::bitmap::{
-    set_block_occupied,
-    set_block_free,
-    find_free_block,
-    is_block_occupied
-};
+use crate::bitmap::{set_block_occupied, set_block_free, find_free_block};
 use crate::byte_utils::{read_i32, write_i32};
-use crate::descriptor::{
-    FileDescriptor, descriptor_block, read_descriptor, write_descriptor,
-};
+use crate::descriptor::{FileDescriptor, descriptor_block, read_descriptor, write_descriptor};
 use crate::oft::{OFT};
 
 // result type for file system operations
@@ -128,15 +121,6 @@ impl FileSystem {
         }
     }
 
-    // load the reserved blocks from disk into cache which is called after loading a saved disk
-    #[allow(dead_code)]
-    fn load_reserved_cache(&mut self) {
-        for i in 0..7 {
-            self.disk.read_block(i).unwrap();
-            self.reserved_cache[i].copy_from_slice(&self.disk.input_buffer);
-        }
-    }
-
     // ======================= BITMAP HELPERS ============================ //
 
     // find a free block and mark it as occupied
@@ -150,12 +134,6 @@ impl FileSystem {
     // mark a block as free in the bitmap
     fn free_block(&mut self, block_num: usize) {
         set_block_free(&mut self.reserved_cache[BITMAP_BLOCK], block_num);
-    }
-
-    // check if a block is occupied
-    #[allow(dead_code)]
-    fn is_block_occupied(&self, block_num: usize) -> bool {
-        is_block_occupied(&self.reserved_cache[BITMAP_BLOCK], block_num)
     }
 
     // ======================== DESCRIPTOR HELPERS ======================== //
@@ -187,50 +165,6 @@ impl FileSystem {
         }
         None
     }
-
-
-    // ======================== Debug/Testing HELPERS ======================== //
-    
-    // print the current state of the bitmap (first 16 blocks)
-    #[allow(dead_code)]
-    pub fn debug_bitmap(&self) {
-        print!("Bitmap (blocks 0-15): ");
-        for i in 0..16 {
-            if self.is_block_occupied(i) {
-                print!("1");
-            } else {
-                print!("0");
-            }
-        }
-        println!();
-    }
-
-    // print the state of descriptor 0 (directory)
-    #[allow(dead_code)]
-    pub fn debug_directory_descriptor(&self) {
-        let desc = self.read_descriptor(0);
-
-        println!(
-            "Descriptor 0 (directory): size={}, blocks={:?}",
-            desc.size, desc.blocks
-        );
-    } 
-
-    // print the state of the OFT
-    #[allow(dead_code)]
-    pub fn debug_oft(&self) {
-        println!("Open File Table:");
-        for i in 0..OFT_SIZE {
-            if let Some(entry) = self.oft.get(i) {
-                let status = if entry.is_free() { "free" } else { "in use" };
-                println!(
-                    "  [{}] {} - pos={}, size={}, desc={}",
-                    i, status, entry.current_pos, entry.size, entry.descriptor_index
-                );
-            }
-        }
-    }
-
 
     // ======================== Core File Operations ======================== // 
 
