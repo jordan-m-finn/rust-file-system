@@ -237,3 +237,53 @@ fn cmd_write_memory(fs: &mut FileSystem, args: &[&str]) -> String {
         Err(_) => "error".to_string(),
     }
 }
+
+// run the shell interactively (reading from stdin)... the UI
+pub fn run_interactive(fs: &mut FileSystem) {
+    use std::io::{self, BufRead, Write};
+
+    let stdin = io::stdin();
+    let mut stdout = io::stdout();
+
+    loop {
+        // print prompt
+        print!("> ");
+        stdout.flush().unwrap();
+
+        // read line
+        let mut line = String::new();
+        match stdin.lock().read_line(&mut line) {
+            // EOF
+            Ok(0) => break,
+            Ok(_) => {}
+            Err(_) => break,
+        }
+
+        // process command
+        let output = process_command(fs, &line);
+
+        // print output
+        if !output.is_empty() {
+            println!("{}", output);
+        }
+    }
+}
+
+// process commands from a file and return all of the output
+pub fn run_from_file(fs: *mut FileSystem, input: &str) -> String {
+    let mut output_lines = Vec::new();
+
+    for line in input.line() {
+        let result = process_command(fs, line);
+
+        // add non-empty results to output
+        if !result.is_empty() {
+            output_lines.push(result);
+        } else if line.trim().is_empty() {
+            // preserve blank lines in output for test ops
+            output_lines.push(String::new());
+        } 
+    }
+
+    output_lines.join("\n")
+}
