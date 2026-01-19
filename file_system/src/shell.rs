@@ -194,3 +194,46 @@ fn cmd_directory(fs: &mut FileSystem) -> String {
         Err(_) => "error".to_string(),
     }
 }
+
+// read from memory
+fn cmd_read_memory(fs: &mut FileSystem, args: &[&str]) -> String {
+    if args.len() != 2 {
+        return "error".to_string();
+    }
+
+    let mem_pos: usize = match args[0].parse() {
+        Ok(n) => n,
+        Err(_) => return "error".to_string(),
+    };
+
+    let count: usize = match args[1].parse() {
+        Ok(n) => n,
+        Err(_) => return "error".to_string(),
+    };
+
+    match fs.read_memory(mem_pos, count) {
+        Ok(content) => content,
+        Err(_) => "error".to_string(),
+    }
+}
+
+// write from memory
+fn cmd_write_memory(fs: &mut FileSystem, args: &[&str]) -> String {
+    if args.len() < 2 {
+        return "error".to_string();
+    }
+
+    let mem_pos: usize = match args[0].parse() {
+        Ok(n) => n,
+        Err(_) => return "error".to_string(),
+    };
+
+    // the string is everything after the first argument
+    // join with spaces in case the string had spaces
+    let data = args[1..].join(" ");
+
+    match fs.write_memory(mem_pos, &data) {
+        Ok(bytes_written) => format!("{} bytes written to M", bytes_written),
+        Err(_) => "error".to_string(),
+    }
+}
