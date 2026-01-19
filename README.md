@@ -1,4 +1,4 @@
-# File System Simulator
+# File System Simulator ~ Rust
 
 A file system simulator implemented in Rust for UCI CS143B (Operating Systems). This project emulates a simple disk-based file system with support for file creation, destruction, reading, writing, and directory management.
 
