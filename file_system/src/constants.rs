@@ -9,6 +9,7 @@ pub const NUM_BLOCKS: usize = 64;
 // -- blocks 1-6 hold descriptors
 // -- first directory block
 pub const BITMAP_BLOCK: usize = 0;
+#[allow(dead_code)]
 pub const DESCRIPTOR_BLOCKS: usize = 6;
 pub const DIRECTORY_BLOCK: usize = 7;
 
@@ -30,4 +31,5 @@ pub const MAX_FILE_SIZE: usize = MAX_FILE_BLOCKS * BLOCK_SIZE;
 // -- 4-byte name + 4-byte index
 // -- max 3 chars + null terminator
 pub const DIR_ENTRY_SIZE: usize = 8;
+#[allow(dead_code)]
 pub const MAX_FILENAME_LEN: usize = 4;

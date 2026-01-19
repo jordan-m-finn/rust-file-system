@@ -1,6 +1,5 @@
 use crate::constants::{
     BLOCK_SIZE,
-    NUM_BLOCKS,
     NUM_DESCRIPTORS,
     DESCRIPTORS_PER_BLOCK,
     OFT_SIZE,
@@ -18,7 +17,7 @@ use crate::byte_utils::{read_i32, write_i32};
 use crate::descriptor::{
     FileDescriptor, descriptor_block, read_descriptor, write_descriptor,
 };
-use crate::oft::{OFT, OFTEntry};
+use crate::oft::{OFT};
 
 // result type for file system operations
 pub type FsResult<T> = Result<T, &'static str>;
@@ -130,6 +129,7 @@ impl FileSystem {
     }
 
     // load the reserved blocks from disk into cache which is called after loading a saved disk
+    #[allow(dead_code)]
     fn load_reserved_cache(&mut self) {
         for i in 0..7 {
             self.disk.read_block(i).unwrap();
@@ -153,6 +153,7 @@ impl FileSystem {
     }
 
     // check if a block is occupied
+    #[allow(dead_code)]
     fn is_block_occupied(&self, block_num: usize) -> bool {
         is_block_occupied(&self.reserved_cache[BITMAP_BLOCK], block_num)
     }
@@ -191,6 +192,7 @@ impl FileSystem {
     // ======================== Debug/Testing HELPERS ======================== //
     
     // print the current state of the bitmap (first 16 blocks)
+    #[allow(dead_code)]
     pub fn debug_bitmap(&self) {
         print!("Bitmap (blocks 0-15): ");
         for i in 0..16 {
@@ -204,6 +206,7 @@ impl FileSystem {
     }
 
     // print the state of descriptor 0 (directory)
+    #[allow(dead_code)]
     pub fn debug_directory_descriptor(&self) {
         let desc = self.read_descriptor(0);
 
@@ -214,6 +217,7 @@ impl FileSystem {
     } 
 
     // print the state of the OFT
+    #[allow(dead_code)]
     pub fn debug_oft(&self) {
         println!("Open File Table:");
         for i in 0..OFT_SIZE {
@@ -316,7 +320,7 @@ impl FileSystem {
 
         while bytes_read < count {
             // get current state (must re-borrow each iteration due to mutations)
-            let (current_pos, file_size, desc_index, buffer_offset) = {
+            let (current_pos, _file_size, _desc_index, buffer_offset) = {
                 let entry = self.oft.get(oft_index).unwrap();
                 (
                     entry.current_pos as usize,
@@ -327,7 +331,7 @@ impl FileSystem {
             };
 
             // check for end of file
-            if current_pos >= file_size {
+            if current_pos >= _file_size {
                 break;
             }
 
@@ -338,7 +342,7 @@ impl FileSystem {
 
             // calculate how many bytes we can read in this iteration
             let bytes_remaining_in_buffer = BLOCK_SIZE - buffer_offset;
-            let bytes_remaining_in_file = file_size - current_pos;
+            let bytes_remaining_in_file = _file_size - current_pos;
             let bytes_remaining_to_read = count - bytes_read;
             let bytes_remaining_in_memory = BLOCK_SIZE - (mem_pos + bytes_read);
 
@@ -409,8 +413,8 @@ impl FileSystem {
 
         while bytes_written < count {
             // get current state
-            let (current_pos, file_size, desc_index, buffer_offset) = {
-                let entry = self.oft.get(oft_index).unwrap();;
+            let (current_pos, _file_size, _desc_index, buffer_offset) = {
+                let entry = self.oft.get(oft_index).unwrap();
                 (
                     entry.current_pos as usize,
                     entry.size as usize,
