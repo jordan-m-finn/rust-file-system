@@ -168,7 +168,7 @@ fn cmd_seek(fs: &mut FileSystem, args: &[&str]) -> String {
 
     let pos: usize = match args[1].parse() {
         Ok(n) => n,
-        Err(_) => "error".to_string(),
+        Err(_) => return "error".to_string(),
     };
 
     match fs.seek(index, pos) {
@@ -270,10 +270,10 @@ pub fn run_interactive(fs: &mut FileSystem) {
 }
 
 // process commands from a file and return all of the output
-pub fn run_from_file(fs: *mut FileSystem, input: &str) -> String {
+pub fn run_from_file(fs: &mut FileSystem, input: &str) -> String {
     let mut output_lines = Vec::new();
 
-    for line in input.line() {
+    for line in input.lines() {
         let result = process_command(fs, line);
 
         // add non-empty results to output
