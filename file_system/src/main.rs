@@ -12,7 +12,7 @@ use std::fs as std_fs;
 use std::io::Write;
 
 use fs::FileSystem;
-use shell::{run_interactive, run_from_file};
+use shell::run_from_file;
 
 fn main() {
     let args: Vec<String> = env::args().collect();
