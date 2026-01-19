@@ -57,7 +57,7 @@ fn cmd_create(fs: &mut FileSystem, args: &[&str]) -> String {
 }
 
 // destroy a file
-fn cmd_destroy(fs: &mut FileSystem, args: &[str]) -> String {
+fn cmd_destroy(fs: &mut FileSystem, args: &[&str]) -> String {
     if args.len() != 1 {
         return "error".to_string();
     }
@@ -71,7 +71,7 @@ fn cmd_destroy(fs: &mut FileSystem, args: &[str]) -> String {
 }
 
 // open a file
-fn cmd_open(fs: &mut FileSystem, args: &[str]) -> String {
+fn cmd_open(fs: &mut FileSystem, args: &[&str]) -> String {
     if args.len() != 1 {
         return "error".to_string();
     }
@@ -85,7 +85,7 @@ fn cmd_open(fs: &mut FileSystem, args: &[str]) -> String {
 }
 
 // close a file
-fn cmd_close(fs: &mut FileSystem, args: &[str]) -> String {
+fn cmd_close(fs: &mut FileSystem, args: &[&str]) -> String {
     if args.len() != 1 {
         return "error".to_string();
     }
@@ -97,6 +97,60 @@ fn cmd_close(fs: &mut FileSystem, args: &[str]) -> String {
 
     match fs.close(index) {
         Ok(()) => format!("{} closed", index),
+        Err(_) => "error".to_string(),
+    }
+}
+
+// read from a file
+fn cmd_read(fs: &mut FileSystem, args: &[&str]) -> String {
+    if args.len() != 3 {
+        return "error".to_string();
+    }
+
+    let index: usize = match args[0].parse() {
+        Ok(n) => n,
+        Err(_) => return "error".to_string(),
+    };
+
+    let mem_pos: usize = match args[1].parse() {
+        Ok(n) => n,
+        Err(_) => return "error".to_string(),
+    };
+
+    let count: usize = match args[2].parse() {
+        Ok(n) => n,
+        Err(_) => return "error".to_string(),
+    };
+
+    match fs.read(index, mem_pos, count) {
+        Ok(bytes_read) => format!("{} bytes read from {}", bytes_read, index),
+        Err(_) => "error".to_string(),
+    }
+}
+
+// write to a file
+fn cmd_write(fs: &mut FileSystem, args: &[&str]) -> String {
+    if args.len() != 3 {
+        return "error".to_string();
+    }
+
+    let index: usize = match args[0].parse() {
+        Ok(n) => n,
+        Err(_) => return "error".to_string(),
+    };
+
+    let mem_pos: usize = match args[1].parse() {
+        Ok(n) => n,
+        Err(_) => return "error".to_string(),
+    };
+
+    let count: usize = match args[2].parse() {
+        Ok(n) => n,
+        Err(_) => return "error".to_string(),
+    };
+
+    match fs.write(index, mem_pos, count) {
+        Ok(bytes_written) => format!("{} bytes written to {}", bytes_written, index),
         Err(_) => "error".to_string(),
     }
 }
