@@ -23,10 +23,6 @@ pub struct FileSystem {
     // main memory buffer M[512] for user data
     pub memory: [u8; BLOCK_SIZE],
 
-    // internal scratch buffer for directory operations
-    // keeps user's memory M intact
-    scratch: [u8; BLOCK_SIZE],
-
     // cache of reserved blocks (bitmap and descriptors)
     // avoids repeatedly reading blocks 0-6 from disk
     // block 0 = bitmap, blocks 1-6 = descriptors
@@ -46,7 +42,6 @@ impl FileSystem {
             disk: Disk::new(),
             oft: OFT::new(),
             memory: [0u8; BLOCK_SIZE],
-            scratch: [0u8; BLOCK_SIZE],
             reserved_cache: [[0u8; BLOCK_SIZE]; 7],
         };
 
@@ -97,7 +92,6 @@ impl FileSystem {
 
         // step 6: initialize memory M to zeros
         self.memory.fill(0);
-        self.scratch.fill(0);
 
         // step 7: initialize OFT
         self.oft = OFT::new();
