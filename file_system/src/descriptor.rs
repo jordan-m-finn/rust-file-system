@@ -1,9 +1,4 @@
-use crate::constants::{
-    BLOCK_SIZE,
-    DESCRIPTOR_SIZE,
-    DESCRIPTORS_PER_BLOCK,
-    NUM_DESCRIPTORS,
-};
+use crate::constants::{DESCRIPTOR_SIZE, DESCRIPTORS_PER_BLOCK};
 use crate::byte_utils::{read_i32, write_i32};
 
 // file descriptor in memory (not on-disk format)
@@ -45,12 +40,6 @@ pub fn descriptor_block(index: usize) -> usize {
     1 + (index / DESCRIPTORS_PER_BLOCK)
 }
 
-// calculate the byte offset within a block for descriptor `index`
-#[allow(dead_code)]
-pub fn descriptor_offset(index: usize) -> usize {
-    (index % DESCRIPTORS_PER_BLOCK) * DESCRIPTOR_SIZE
-}
-
 // read a descriptor from a block's data
 pub fn read_descriptor(block_data: &[u8], index_in_block: usize) -> FileDescriptor {
     let offset = index_in_block * DESCRIPTOR_SIZE;
@@ -74,26 +63,3 @@ pub fn write_descriptor(block_data: &mut [u8], index_in_block: usize, desc: &Fil
     write_i32(block_data, offset + 8, desc.blocks[1]);
     write_i32(block_data, offset + 12, desc.blocks[2]);
 }
-
-// find a free descriptor (size == -1)
-// takes a function that reads block data, since we need to check multiple blocks
-// returns some(index) if found, None if all descriptors are in use
-#[allow(dead_code)]
-pub fn find_free_descriptor<F>(mut read_block_fn: F) -> Option<usize>
-where
-    F: FnMut(usize) -> [u8; BLOCK_SIZE],
-{
-    // start at 1, descriptor 0 is directory
-    for desc_index in 1..NUM_DESCRIPTORS {
-        let block_num = descriptor_block(desc_index);
-        let block_data = read_block_fn(block_num);
-        let index_in_block = desc_index % DESCRIPTORS_PER_BLOCK;
-
-        let desc = read_descriptor(&block_data, index_in_block);
-        if desc.is_free() {
-            return Some(desc_index);
-        }
-    }
-    None
-}
-
